@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Filter } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
@@ -7,6 +7,8 @@ import { Button } from '../components/Button';
 import { TransactionCard } from '../components/TransactionCard';
 import { Skeleton } from '../components/Skeleton';
 import api from '../api/axios';
+
+const POLLING_INTERVAL = 10000;
 
 const TransactionHistory = () => {
   const navigate = useNavigate();
@@ -20,9 +22,46 @@ const TransactionHistory = () => {
     offset: 0,
     page: 1,
   });
+  const previousTotal = useRef(null);
 
   useEffect(() => {
     fetchTransactions();
+    
+    const pollingInterval = setInterval(async () => {
+      try {
+        const params = {
+          limit: pagination.limit,
+          offset: 0,
+        };
+        
+        if (filter !== 'all') {
+          params.type = filter;
+        }
+
+        const { data } = await api.get('/transactions', { params });
+        
+        if (previousTotal.current !== null && data.pagination?.total !== previousTotal.current) {
+          const newCount = data.pagination.total - previousTotal.current;
+          if (newCount > 0) {
+            showToast(`${newCount} new transaction${newCount > 1 ? 's' : ''}`, 'info');
+            if (pagination.offset === 0) {
+              setTransactions(data.data || []);
+              setPagination(prev => ({
+                ...prev,
+                total: data.pagination?.total || 0,
+                page: data.pagination?.page || 1,
+              }));
+            }
+          }
+        }
+        
+        previousTotal.current = data.pagination?.total || 0;
+      } catch (error) {
+        console.error('polling error:', error);
+      }
+    }, POLLING_INTERVAL);
+
+    return () => clearInterval(pollingInterval);
   }, [filter, pagination.offset]);
 
   const fetchTransactions = async () => {
@@ -39,18 +78,22 @@ const TransactionHistory = () => {
 
       const { data } = await api.get('/transactions', { params });
       
-      // apend if loading more, replace if initial load or filter change
       if (pagination.offset > 0) {
         setTransactions(prev => [...prev, ...(data.data || [])]);
       } else {
         setTransactions(data.data || []);
       }
       
+      const newTotal = data.pagination?.total || 0;
       setPagination(prev => ({
         ...prev,
-        total: data.pagination?.total || 0,
+        total: newTotal,
         page: data.pagination?.page || 1,
       }));
+      
+      if (previousTotal.current === null) {
+        previousTotal.current = newTotal;
+      }
     } catch (error) {
       console.error('failed to fetch transactions:', error);
       showToast('Failed to load transactions', 'error');

@@ -1,6 +1,8 @@
 import { ArrowUpRight, ArrowDownLeft, Trash2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 export const TransactionCard = ({ transaction, onDelete, showDelete = false }) => {
+  const { user } = useAuth();
   const isCredit = transaction.type === 'CREDIT';
   const amount = parseFloat(transaction.amount);
   const fee = transaction.fee ? parseFloat(transaction.fee) : 0;
@@ -27,6 +29,16 @@ export const TransactionCard = ({ transaction, onDelete, showDelete = false }) =
     });
   };
 
+  const getTransactionDescription = () => {
+    if (transaction.description) {
+      return transaction.description;
+    }
+    if (isCredit) {
+      return transaction.sender ? `From ${transaction.sender.name}` : 'Money Added';
+    }
+    return transaction.recipient ? `To ${transaction.recipient.name}` : 'Money Sent';
+  };
+
   return (
     <div className="flex items-center justify-between py-4 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors -mx-2 px-2 rounded-lg">
       <div className="flex items-center gap-3 flex-1">
@@ -42,7 +54,7 @@ export const TransactionCard = ({ transaction, onDelete, showDelete = false }) =
         
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-900 dark:text-white truncate">
-            {transaction.description || (isCredit ? 'Money Added' : 'Money Sent')}
+            {getTransactionDescription()}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {formatDate(transaction.date)} • {formatTime(transaction.date)}
