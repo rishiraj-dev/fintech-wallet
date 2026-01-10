@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   LogOut, 
@@ -17,23 +17,65 @@ import { TransactionCard } from '../components/TransactionCard';
 import { Skeleton } from '../components/Skeleton';
 import api from '../api/axios';
 
+const POLLING_INTERVAL = 10000;
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, logout, refreshUser } = useAuth();
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState([]);
   const [showBalance, setShowBalance] = useState(true);
+  const previousBalance = useRef(null);
 
   useEffect(() => {
     fetchDashboardData();
+    
+    const pollingInterval = setInterval(async () => {
+      try {
+        const { data } = await api.get('/user/me');
+        
+        if (previousBalance.current !== null) {
+          const prevBalance = parseFloat(previousBalance.current);
+          const newBalance = parseFloat(data.balance);
+          
+          if (newBalance !== prevBalance) {
+            const diff = newBalance - prevBalance;
+            const message = diff > 0 
+              ? `Balance increased by ₹${Math.abs(diff).toFixed(2)}`
+              : `Balance decreased by ₹${Math.abs(diff).toFixed(2)}`;
+            
+            showToast(message, diff > 0 ? 'success' : 'info');
+            await refreshUser();
+            fetchTransactions();
+          }
+        }
+        
+        previousBalance.current = data.balance;
+      } catch (error) {
+        console.error('polling error:', error);
+      }
+    }, POLLING_INTERVAL);
+
+    return () => clearInterval(pollingInterval);
   }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      const { data } = await api.get('/transactions?limit=5&offset=0');
+      setTransactions(data.data || []);
+    } catch (error) {
+      console.error('failed to fetch transactions:', error);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       await refreshUser();
-      const { data } = await api.get('/transactions?limit=5&offset=0');
-      setTransactions(data.data || []);
+      const { data: userData } = await api.get('/user/me');
+      previousBalance.current = userData.balance;
+      await fetchTransactions();
     } catch (error) {
       console.error('failed to fetch dashboard data:', error);
     } finally {

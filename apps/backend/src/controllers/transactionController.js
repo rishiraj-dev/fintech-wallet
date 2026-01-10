@@ -39,18 +39,31 @@ async function getTransactions(req, res, next) {
       prisma.transaction.count({ where })
     ]);
 
-    // transactions for response
-    const formattedTransactions = transactions.map(tx => ({
-      id: tx.id,
-      type: tx.type,
-      amount: tx.amount,
-      fee: tx.fee || 0,
-      description: tx.description,
-      status: tx.status,
-      sender: tx.sender,
-      recipient: tx.recipient,
-      date: tx.createdAt
-    }));
+    const formattedTransactions = transactions.map(tx => {
+      const isSender = tx.senderId === userId;
+      const isRecipient = tx.recipientId === userId;
+      
+      let transactionType;
+      if (isSender && !isRecipient) {
+        transactionType = 'DEBIT';
+      } else if (isRecipient && !isSender) {
+        transactionType = 'CREDIT';
+      } else {
+        transactionType = tx.type;
+      }
+
+      return {
+        id: tx.id,
+        type: transactionType,
+        amount: tx.amount,
+        fee: tx.fee || 0,
+        description: tx.description,
+        status: tx.status,
+        sender: tx.sender,
+        recipient: tx.recipient,
+        date: tx.createdAt
+      };
+    });
 
     res.json({
       data: formattedTransactions,
