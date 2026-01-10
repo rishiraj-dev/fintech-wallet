@@ -6,6 +6,7 @@ import { SlideUpProvider } from './contexts/SlideUpContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import { FloatingBottomNav, FloatingSidebar } from './components/Navigation';
+import { InstallPrompt } from './components/InstallPrompt';
 
 // pages
 import Login from './pages/Login';
@@ -78,6 +79,7 @@ function App() {
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
+                <InstallPrompt />
               </BrowserRouter>
             </AuthProvider>
           </SlideUpProvider>
