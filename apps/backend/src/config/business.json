@@ -1,0 +1,7 @@
+{
+  "feePercentage": 0.02,
+  "maxTransactionLimit": 10000,
+  "minTransactionAmount": 1,
+  "creditEnabled": true,
+  "debitEnabled": true
+}
