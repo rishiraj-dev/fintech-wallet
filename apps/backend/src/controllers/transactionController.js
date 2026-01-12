@@ -223,17 +223,24 @@ async function createTransaction(req, res, next) {
 
       if (type === 'DEBIT') {
         try {
+          // Don't set recipientId if recipient wasn't found (FK constraint)
+          const failedTransactionData = {
+            type: 'DEBIT',
+            amount,
+            fee,
+            status: 'failed',
+            senderId: userId,
+            description: recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer',
+            errorMessage: errorMessage
+          };
+
+          // Only add recipientId if the error is NOT about recipient not found
+          if (error.message !== 'Recipient not found' && recipientId) {
+            failedTransactionData.recipientId = recipientId;
+          }
+
           await prisma.transaction.create({
-            data: {
-              type: 'DEBIT',
-              amount,
-              fee,
-              status: 'failed',
-              senderId: userId,
-              recipientId: recipientId || null,
-              description: recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer',
-              errorMessage: errorMessage
-            }
+            data: failedTransactionData
           });
         } catch (createError) {
           console.error('Failed to log failed transaction:', createError);
