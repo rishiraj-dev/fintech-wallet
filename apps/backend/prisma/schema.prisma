@@ -35,11 +35,11 @@ model Transaction {
   type        String
   status      String   @default("pending") 
   description String?
+  errorMessage String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
 
-  // Relations
   senderId    Int?
   sender      User?    @relation("Sender", fields: [senderId], references: [id])
   
