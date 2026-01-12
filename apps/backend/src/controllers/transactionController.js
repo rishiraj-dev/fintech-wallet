@@ -105,15 +105,16 @@ async function createTransaction(req, res, next) {
   const userId = req.user.id;
 
   // Calculate fee early so it's available in catch block
-  const fee = (type === 'DEBIT' && amount) ? amount * businessConfig.feePercentage : 0;
+  const numAmount = parseFloat(amount) || 0;
+  const fee = (type === 'DEBIT' && numAmount > 0) ? numAmount * businessConfig.feePercentage : 0;
 
   // Helper function to log failed transaction
   const logFailedTransaction = async (errorMessage) => {
     try {
       const failedTransactionData = {
         type: type || 'UNKNOWN',
-        amount: amount || 0,
-        fee,
+        amount: numAmount,
+        fee: parseFloat(fee) || 0,
         status: 'failed',
         errorMessage: errorMessage
       };
@@ -132,11 +133,16 @@ async function createTransaction(req, res, next) {
         failedTransactionData.description = 'Failed transaction';
       }
 
+      console.log('Logging failed transaction:', failedTransactionData);
+      
       await prisma.transaction.create({
         data: failedTransactionData
       });
+      
+      console.log('Failed transaction logged successfully');
     } catch (createError) {
       console.error('Failed to log failed transaction:', createError);
+      console.error('Error details:', createError.message, createError.stack);
     }
   };
 
@@ -152,18 +158,18 @@ async function createTransaction(req, res, next) {
       return res.status(400).json({ error: 'Invalid amount. Must be a positive number' });
     }
 
-    if (amount <= 0) {
+    if (numAmount <= 0) {
       await logFailedTransaction('Amount must be greater than 0');
       return res.status(400).json({ error: 'Amount must be greater than 0' });
     }
 
-    if (amount < businessConfig.minTransactionAmount) {
+    if (numAmount < businessConfig.minTransactionAmount) {
       const error = `Minimum transaction amount is ${businessConfig.minTransactionAmount}`;
       await logFailedTransaction(error);
       return res.status(400).json({ error });
     }
 
-    if (amount > businessConfig.maxTransactionLimit) {
+    if (numAmount > businessConfig.maxTransactionLimit) {
       const error = `Maximum transaction limit is ${businessConfig.maxTransactionLimit}`;
       await logFailedTransaction(error);
       return res.status(400).json({ error });
@@ -179,7 +185,7 @@ async function createTransaction(req, res, next) {
       return res.status(400).json({ error: 'Cannot transfer to yourself' });
     }
 
-    const totalDeduction = type === 'DEBIT' ? parseFloat(amount) + parseFloat(fee) : 0;
+    const totalDeduction = type === 'DEBIT' ? numAmount + fee : 0;
 
     try {
       const result = await prisma.$transaction(async (tx) => {
@@ -207,13 +213,13 @@ async function createTransaction(req, res, next) {
 
           await tx.user.update({
             where: { id: recipientId },
-            data: { balance: { increment: amount } }
+            data: { balance: { increment: numAmount } }
           });
 
           const transaction = await tx.transaction.create({
             data: {
               type: 'DEBIT',
-              amount,
+              amount: numAmount,
               fee,
               status: 'completed',
               senderId: userId,
@@ -226,13 +232,13 @@ async function createTransaction(req, res, next) {
         } else {
           await tx.user.update({
             where: { id: userId },
-            data: { balance: { increment: amount } }
+            data: { balance: { increment: numAmount } }
           });
 
           const transaction = await tx.transaction.create({
             data: {
               type: 'CREDIT',
-              amount,
+              amount: numAmount,
               status: 'completed',
               recipientId: userId,
               description: 'Added money to wallet'
