@@ -107,37 +107,69 @@ async function createTransaction(req, res, next) {
   // Calculate fee early so it's available in catch block
   const fee = type === 'DEBIT' ? amount * businessConfig.feePercentage : 0;
 
+  // Helper function to log failed transaction
+  const logFailedTransaction = async (errorMessage) => {
+    if (type === 'DEBIT') {
+      try {
+        const failedTransactionData = {
+          type: 'DEBIT',
+          amount: amount || 0,
+          fee,
+          status: 'failed',
+          senderId: userId,
+          description: recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer',
+          errorMessage: errorMessage
+        };
+
+        if (errorMessage !== 'Recipient not found' && recipientId) {
+          failedTransactionData.recipientId = recipientId;
+        }
+
+        await prisma.transaction.create({
+          data: failedTransactionData
+        });
+      } catch (createError) {
+        console.error('Failed to log failed transaction:', createError);
+      }
+    }
+  };
+
   try {
     // validation
     if (!type || !['CREDIT', 'DEBIT'].includes(type)) {
+      await logFailedTransaction('Invalid transaction type. Must be CREDIT or DEBIT');
       return res.status(400).json({ error: 'Invalid transaction type. Must be CREDIT or DEBIT' });
     }
 
     if (!validateAmount(amount)) {
+      await logFailedTransaction('Invalid amount. Must be a positive number');
       return res.status(400).json({ error: 'Invalid amount. Must be a positive number' });
     }
 
     if (amount <= 0) {
+      await logFailedTransaction('Amount must be greater than 0');
       return res.status(400).json({ error: 'Amount must be greater than 0' });
     }
 
     if (amount < businessConfig.minTransactionAmount) {
-      return res.status(400).json({ 
-        error: `Minimum transaction amount is ${businessConfig.minTransactionAmount}` 
-      });
+      const error = `Minimum transaction amount is ${businessConfig.minTransactionAmount}`;
+      await logFailedTransaction(error);
+      return res.status(400).json({ error });
     }
 
     if (amount > businessConfig.maxTransactionLimit) {
-      return res.status(400).json({ 
-        error: `Maximum transaction limit is ${businessConfig.maxTransactionLimit}` 
-      });
+      const error = `Maximum transaction limit is ${businessConfig.maxTransactionLimit}`;
+      await logFailedTransaction(error);
+      return res.status(400).json({ error });
     }
 
     if (type === 'DEBIT' && !recipientId) {
+      await logFailedTransaction('Recipient is required for debit transactions');
       return res.status(400).json({ error: 'Recipient is required for debit transactions' });
     }
 
     if (type === 'DEBIT' && recipientId === userId) {
+      await logFailedTransaction('Cannot transfer to yourself');
       return res.status(400).json({ error: 'Cannot transfer to yourself' });
     }
 
@@ -223,31 +255,7 @@ async function createTransaction(req, res, next) {
         statusCode = 404;
       }
 
-      if (type === 'DEBIT') {
-        try {
-          // Don't set recipientId if recipient wasn't found (FK constraint)
-          const failedTransactionData = {
-            type: 'DEBIT',
-            amount,
-            fee,
-            status: 'failed',
-            senderId: userId,
-            description: recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer',
-            errorMessage: errorMessage
-          };
-
-          // Only add recipientId if the error is NOT about recipient not found
-          if (error.message !== 'Recipient not found' && recipientId) {
-            failedTransactionData.recipientId = recipientId;
-          }
-
-          await prisma.transaction.create({
-            data: failedTransactionData
-          });
-        } catch (createError) {
-          console.error('Failed to log failed transaction:', createError);
-        }
-      }
+      await logFailedTransaction(errorMessage);
 
       return res.status(statusCode).json({ error: errorMessage });
     }
