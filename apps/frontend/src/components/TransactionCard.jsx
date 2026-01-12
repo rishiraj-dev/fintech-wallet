@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 export const TransactionCard = ({ transaction, onDelete, showDelete = false }) => {
   const { user } = useAuth();
   const isCredit = transaction.type === 'CREDIT';
+  const isFailed = transaction.status === 'failed';
   const amount = parseFloat(transaction.amount);
   const fee = transaction.fee ? parseFloat(transaction.fee) : 0;
 
@@ -40,13 +41,15 @@ export const TransactionCard = ({ transaction, onDelete, showDelete = false }) =
   };
 
   return (
-    <div className="flex items-center justify-between py-4 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors -mx-2 px-2 rounded-lg">
+    <div className={`flex items-center justify-between py-4 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors -mx-2 px-2 rounded-lg ${isFailed ? 'opacity-75' : ''}`}>
       <div className="flex items-center gap-3 flex-1">
         <div className={`
           w-10 h-10 rounded-full flex items-center justify-center
-          ${isCredit 
-            ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400' 
-            : 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+          ${isFailed 
+            ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
+            : isCredit 
+              ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400' 
+              : 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400'
           }
         `}>
           {isCredit ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
@@ -59,17 +62,27 @@ export const TransactionCard = ({ transaction, onDelete, showDelete = false }) =
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {formatDate(transaction.date)} • {formatTime(transaction.date)}
           </p>
+          {isFailed && transaction.errorMessage && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {transaction.errorMessage}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="flex items-center gap-3">
         <div className="text-right">
-          <p className={`font-semibold ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400 text-nowrap'}`}>
+          <p className={`font-semibold ${isFailed ? 'text-gray-400 dark:text-gray-500 line-through' : isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400 text-nowrap'}`}>
             {isCredit ? '+' : '-'}₹{amount.toFixed(2)}
           </p>
           {fee > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className={`text-xs ${isFailed ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-400'}`}>
               Fee: ₹{fee.toFixed(2)}
+            </p>
+          )}
+          {isFailed && (
+            <p className="text-xs text-red-600 dark:text-red-400 font-medium mt-1">
+              Failed
             </p>
           )}
         </div>

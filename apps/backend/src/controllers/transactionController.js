@@ -79,6 +79,7 @@ async function getTransactions(req, res, next) {
         fee: tx.fee || 0,
         description: tx.description,
         status: tx.status,
+        errorMessage: tx.errorMessage,
         sender: tx.sender,
         recipient: tx.recipient,
         date: tx.createdAt
@@ -137,96 +138,107 @@ async function createTransaction(req, res, next) {
       return res.status(400).json({ error: 'Cannot transfer to yourself' });
     }
 
-    // calc fee for debit transactions
     const fee = type === 'DEBIT' ? amount * businessConfig.feePercentage : 0;
     const totalDeduction = type === 'DEBIT' ? parseFloat(amount) + parseFloat(fee) : 0;
 
-    // using Prisma transaction for ACID compliance
-    const result = await prisma.$transaction(async (tx) => {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        if (type === 'DEBIT') {
+          const recipient = await tx.user.findFirst({
+            where: { id: recipientId, deletedAt: null }
+          });
+
+          if (!recipient) {
+            throw new Error('Recipient not found');
+          }
+
+          const sender = await tx.user.findUnique({
+            where: { id: userId }
+          });
+
+          if (parseFloat(sender.balance) < totalDeduction) {
+            throw new Error('Insufficient balance');
+          }
+
+          await tx.user.update({
+            where: { id: userId },
+            data: { balance: { decrement: totalDeduction } }
+          });
+
+          await tx.user.update({
+            where: { id: recipientId },
+            data: { balance: { increment: amount } }
+          });
+
+          const transaction = await tx.transaction.create({
+            data: {
+              type: 'DEBIT',
+              amount,
+              fee,
+              status: 'completed',
+              senderId: userId,
+              recipientId,
+              description: `Transfer to ${recipient.name}`
+            }
+          });
+
+          return transaction;
+        } else {
+          await tx.user.update({
+            where: { id: userId },
+            data: { balance: { increment: amount } }
+          });
+
+          const transaction = await tx.transaction.create({
+            data: {
+              type: 'CREDIT',
+              amount,
+              status: 'completed',
+              recipientId: userId,
+              description: 'Added money to wallet'
+            }
+          });
+
+          return transaction;
+        }
+      });
+
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { balance: true }
+      });
+
+      res.status(201).json({
+        message: 'Transaction successful',
+        transactionId: result.id,
+        newBalance: updatedUser.balance
+      });
+    } catch (error) {
+      let errorMessage = error.message;
+      let statusCode = 400;
+
+      if (error.message === 'Recipient not found') {
+        statusCode = 404;
+      }
+
       if (type === 'DEBIT') {
-        // verify recipient exists
-        const recipient = await tx.user.findFirst({
-          where: { id: recipientId, deletedAt: null }
-        });
-
-        if (!recipient) {
-          throw new Error('Recipient not found');
-        }
-
-        // verify sender has sufficient balance
-        const sender = await tx.user.findUnique({
-          where: { id: userId }
-        });
-
-        if (parseFloat(sender.balance) < totalDeduction) {
-          throw new Error('Insufficient balance');
-        }
-
-        // deduct from sender
-        await tx.user.update({
-          where: { id: userId },
-          data: { balance: { decrement: totalDeduction } }
-        });
-
-        // add to recipient
-        await tx.user.update({
-          where: { id: recipientId },
-          data: { balance: { increment: amount } }
-        });
-
-        // create transaction record
-        const transaction = await tx.transaction.create({
+        await prisma.transaction.create({
           data: {
             type: 'DEBIT',
             amount,
             fee,
-            status: 'completed',
+            status: 'failed',
             senderId: userId,
-            recipientId,
-            description: `Transfer to ${recipient.name}`
+            recipientId: recipientId || null,
+            description: recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer',
+            errorMessage: errorMessage
           }
         });
-
-        return transaction;
-      } else {
-        // CREDIT
-        await tx.user.update({
-          where: { id: userId },
-          data: { balance: { increment: amount } }
-        });
-
-        const transaction = await tx.transaction.create({
-          data: {
-            type: 'CREDIT',
-            amount,
-            status: 'completed',
-            recipientId: userId,
-            description: 'Added money to wallet'
-          }
-        });
-
-        return transaction;
       }
-    });
 
-    // fetch updated user balance
-    const updatedUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { balance: true }
-    });
-
-    res.status(201).json({
-      message: 'Transaction successful',
-      transactionId: result.id,
-      newBalance: updatedUser.balance
-    });
+      return res.status(statusCode).json({ error: errorMessage });
+    }
   } catch (error) {
-    if (error.message === 'Insufficient balance') {
-      return res.status(400).json({ error: error.message });
-    }
-    if (error.message === 'Recipient not found') {
-      return res.status(404).json({ error: error.message });
-    }
     next(error);
   }
 }
