@@ -105,32 +105,38 @@ async function createTransaction(req, res, next) {
   const userId = req.user.id;
 
   // Calculate fee early so it's available in catch block
-  const fee = type === 'DEBIT' ? amount * businessConfig.feePercentage : 0;
+  const fee = (type === 'DEBIT' && amount) ? amount * businessConfig.feePercentage : 0;
 
   // Helper function to log failed transaction
   const logFailedTransaction = async (errorMessage) => {
-    if (type === 'DEBIT') {
-      try {
-        const failedTransactionData = {
-          type: 'DEBIT',
-          amount: amount || 0,
-          fee,
-          status: 'failed',
-          senderId: userId,
-          description: recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer',
-          errorMessage: errorMessage
-        };
+    try {
+      const failedTransactionData = {
+        type: type || 'UNKNOWN',
+        amount: amount || 0,
+        fee,
+        status: 'failed',
+        errorMessage: errorMessage
+      };
 
+      if (type === 'DEBIT') {
+        failedTransactionData.senderId = userId;
+        failedTransactionData.description = recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer';
+        
         if (errorMessage !== 'Recipient not found' && recipientId) {
           failedTransactionData.recipientId = recipientId;
         }
-
-        await prisma.transaction.create({
-          data: failedTransactionData
-        });
-      } catch (createError) {
-        console.error('Failed to log failed transaction:', createError);
+      } else if (type === 'CREDIT') {
+        failedTransactionData.recipientId = userId;
+        failedTransactionData.description = 'Failed to add money to wallet';
+      } else {
+        failedTransactionData.description = 'Failed transaction';
       }
+
+      await prisma.transaction.create({
+        data: failedTransactionData
+      });
+    } catch (createError) {
+      console.error('Failed to log failed transaction:', createError);
     }
   };
 
@@ -260,6 +266,8 @@ async function createTransaction(req, res, next) {
       return res.status(statusCode).json({ error: errorMessage });
     }
   } catch (error) {
+    // Log failed transaction for any unexpected errors
+    await logFailedTransaction(error.message || 'Unknown error occurred');
     next(error);
   }
 }
