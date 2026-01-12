@@ -16,6 +16,9 @@ const TransactionHistory = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [pagination, setPagination] = useState({
     total: 0,
     limit: 20,
@@ -36,6 +39,15 @@ const TransactionHistory = () => {
         
         if (filter !== 'all') {
           params.type = filter;
+        }
+        if (statusFilter !== 'all') {
+          params.status = statusFilter;
+        }
+        if (startDate) {
+          params.startDate = startDate;
+        }
+        if (endDate) {
+          params.endDate = endDate;
         }
 
         const { data } = await api.get('/transactions', { params });
@@ -62,7 +74,7 @@ const TransactionHistory = () => {
     }, POLLING_INTERVAL);
 
     return () => clearInterval(pollingInterval);
-  }, [filter, pagination.offset]);
+  }, [filter, statusFilter, startDate, endDate, pagination.offset]);
 
   const fetchTransactions = async () => {
     try {
@@ -74,6 +86,15 @@ const TransactionHistory = () => {
       
       if (filter !== 'all') {
         params.type = filter;
+      }
+      if (statusFilter !== 'all') {
+        params.status = statusFilter;
+      }
+      if (startDate) {
+        params.startDate = startDate;
+      }
+      if (endDate) {
+        params.endDate = endDate;
       }
 
       const { data } = await api.get('/transactions', { params });
@@ -123,6 +144,21 @@ const TransactionHistory = () => {
     setPagination(prev => ({ ...prev, offset: 0, page: 1 }));
   };
 
+  const handleStatusFilterChange = (newStatus) => {
+    setStatusFilter(newStatus);
+    setPagination(prev => ({ ...prev, offset: 0, page: 1 }));
+  };
+
+  const handleDateChange = () => {
+    setPagination(prev => ({ ...prev, offset: 0, page: 1 }));
+  };
+
+  const clearDateFilters = () => {
+    setStartDate('');
+    setEndDate('');
+    setPagination(prev => ({ ...prev, offset: 0, page: 1 }));
+  };
+
   const loadMore = () => {
     setPagination(prev => ({
       ...prev,
@@ -152,53 +188,125 @@ const TransactionHistory = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* filters */}
         <Card className="p-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter size={18} className="text-gray-400 shrink-0" />
-            
-            <button
-              onClick={() => handleFilterChange('all')}
-              className={`
-                px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                ${filter === 'all' 
-                  ? 'bg-[#C5FF55] text-gray-900 shadow-md scale-105' 
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }
-              `}
-            >
-              All
-            </button>
-            
-            <button
-              onClick={() => handleFilterChange('CREDIT')}
-              className={`
-                px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                ${filter === 'CREDIT' 
-                  ? 'bg-green-500 text-white shadow-md scale-105' 
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }
-              `}
-            >
-              Credit
-            </button>
-            
-            <button
-              onClick={() => handleFilterChange('DEBIT')}
-              className={`
-                px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                ${filter === 'DEBIT' 
-                  ? 'bg-red-500 text-white shadow-md scale-105' 
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }
-              `}
-            >
-              Debit
-            </button>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Filter size={18} className="text-gray-400 shrink-0" />
+              
+              <button
+                onClick={() => handleFilterChange('all')}
+                className={`
+                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
+                  ${filter === 'all' 
+                    ? 'bg-[#C5FF55] text-gray-900 shadow-md scale-105' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }
+                `}
+              >
+                All
+              </button>
+              
+              <button
+                onClick={() => handleFilterChange('CREDIT')}
+                className={`
+                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
+                  ${filter === 'CREDIT' 
+                    ? 'bg-green-500 text-white shadow-md scale-105' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }
+                `}
+              >
+                Credit
+              </button>
+              
+              <button
+                onClick={() => handleFilterChange('DEBIT')}
+                className={`
+                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
+                  ${filter === 'DEBIT' 
+                    ? 'bg-red-500 text-white shadow-md scale-105' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }
+                `}
+              >
+                Debit
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => handleStatusFilterChange('all')}
+                className={`
+                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
+                  ${statusFilter === 'all' 
+                    ? 'bg-[#C5FF55] text-gray-900 shadow-md scale-105' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }
+                `}
+              >
+                All Status
+              </button>
+              
+              <button
+                onClick={() => handleStatusFilterChange('completed')}
+                className={`
+                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
+                  ${statusFilter === 'completed' 
+                    ? 'bg-green-500 text-white shadow-md scale-105' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }
+                `}
+              >
+                Success
+              </button>
+              
+              <button
+                onClick={() => handleStatusFilterChange('failed')}
+                className={`
+                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
+                  ${statusFilter === 'failed' 
+                    ? 'bg-red-500 text-white shadow-md scale-105' 
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }
+                `}
+              >
+                Failed
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  handleDateChange();
+                }}
+                className="px-4 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#C5FF55] focus:border-transparent"
+                placeholder="Start date"
+              />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  handleDateChange();
+                }}
+                className="px-4 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#C5FF55] focus:border-transparent"
+                placeholder="End date"
+              />
+              {(startDate || endDate) && (
+                <button
+                  onClick={clearDateFilters}
+                  className="px-4 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Clear Dates
+                </button>
+              )}
+            </div>
           </div>
         </Card>
 
-        {/* transactions list */}
         <Card className="p-6">
           {loading && pagination.offset === 0 ? (
             <div className="space-y-4">
@@ -220,7 +328,9 @@ const TransactionHistory = () => {
               </div>
               <p className="text-gray-500 dark:text-gray-400">No transactions found</p>
               <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                {filter !== 'all' ? 'Try changing the filter' : 'Start by adding money to your wallet'}
+                {filter !== 'all' || statusFilter !== 'all' || startDate || endDate 
+                  ? 'Try adjusting the filters' 
+                  : 'Start by adding money to your wallet'}
               </p>
             </div>
           ) : (
