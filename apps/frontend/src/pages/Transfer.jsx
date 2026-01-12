@@ -152,7 +152,16 @@ const Transfer = () => {
       setRecipientQuery('');
       setSelectedRecipient(null);
     } catch (error) {
-      const message = error.response?.data?.error || 'transaction failed. please try again.';
+      const message = error.response?.data?.error || 'Transaction failed';
+      
+      showSlideUp({
+        type: 'error',
+        title: 'Transaction Failed',
+        message: activeTab === 'credit' 
+          ? 'Could not add money to wallet' 
+          : `Could not send money to ${selectedRecipient?.name || 'recipient'}`,
+        amount: amount,
+      });
       
       showToast(message, 'error');
     } finally {
