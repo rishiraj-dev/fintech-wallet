@@ -136,7 +136,6 @@ const Transfer = () => {
 
       const { data } = await api.post('/transactions', payload);
       
-      // show slideup success
       showSlideUp({
         type: 'success',
         title: activeTab === 'credit' ? 'Money Added!' : 'Money Sent!',
@@ -147,23 +146,15 @@ const Transfer = () => {
         onAction: () => navigate('/transactions'),
       });
       
-      // refresh user balance
       await refreshUser();
       
-      // reset form
       setAmount('');
       setRecipientQuery('');
       setSelectedRecipient(null);
     } catch (error) {
       const message = error.response?.data?.error || 'transaction failed. please try again.';
       
-      // show slideup failure
-      showSlideUp({
-        type: 'error',
-        title: 'Transaction Failed',
-        message: message,
-        amount: amount,
-      });
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
