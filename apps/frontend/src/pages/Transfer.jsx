@@ -152,7 +152,18 @@ const Transfer = () => {
       setRecipientQuery('');
       setSelectedRecipient(null);
     } catch (error) {
-      const message = error.response?.data?.error || 'Transaction failed';
+      const errorMessage = error.response?.data?.error || 'Transaction failed';
+      
+      let shortMessage = 'Failed';
+      if (errorMessage.toLowerCase().includes('insufficient')) {
+        shortMessage = 'Insufficient balance';
+      } else if (errorMessage.toLowerCase().includes('recipient not found')) {
+        shortMessage = 'Recipient not found';
+      } else if (errorMessage.toLowerCase().includes('minimum')) {
+        shortMessage = 'Amount too low';
+      } else if (errorMessage.toLowerCase().includes('maximum')) {
+        shortMessage = 'Amount too high';
+      }
       
       showSlideUp({
         type: 'error',
@@ -163,7 +174,7 @@ const Transfer = () => {
         amount: amount,
       });
       
-      showToast(message, 'error');
+      showToast(shortMessage, 'error');
     } finally {
       setLoading(false);
     }
