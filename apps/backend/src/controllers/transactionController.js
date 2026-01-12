@@ -101,10 +101,13 @@ async function getTransactions(req, res, next) {
 }
 
 async function createTransaction(req, res, next) {
-  try {
-    const { type, amount, recipientId } = req.body;
-    const userId = req.user.id;
+  const { type, amount, recipientId } = req.body;
+  const userId = req.user.id;
 
+  // Calculate fee early so it's available in catch block
+  const fee = type === 'DEBIT' ? amount * businessConfig.feePercentage : 0;
+
+  try {
     // validation
     if (!type || !['CREDIT', 'DEBIT'].includes(type)) {
       return res.status(400).json({ error: 'Invalid transaction type. Must be CREDIT or DEBIT' });
@@ -138,7 +141,6 @@ async function createTransaction(req, res, next) {
       return res.status(400).json({ error: 'Cannot transfer to yourself' });
     }
 
-    const fee = type === 'DEBIT' ? amount * businessConfig.feePercentage : 0;
     const totalDeduction = type === 'DEBIT' ? parseFloat(amount) + parseFloat(fee) : 0;
 
     try {
