@@ -62,6 +62,11 @@ export const TransactionCard = ({ transaction, onDelete, showDelete = false }) =
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {formatDate(transaction.date)} • {formatTime(transaction.date)}
           </p>
+          {isFailed && transaction.errorMessage && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+              {transaction.errorMessage}
+            </p>
+          )}
         </div>
       </div>
 
