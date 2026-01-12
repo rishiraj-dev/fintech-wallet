@@ -104,27 +104,29 @@ async function createTransaction(req, res, next) {
   const { type, amount, recipientId } = req.body;
   const userId = req.user.id;
 
-  // Calculate fee early so it's available in catch block
-  const numAmount = parseFloat(amount) || 0;
-  const fee = (type === 'DEBIT' && numAmount > 0) ? numAmount * businessConfig.feePercentage : 0;
+  // Parse and validate input early
+  const numAmount = parseFloat(amount);
+  const numRecipientId = recipientId ? parseInt(recipientId) : null;
+  const fee = (type === 'DEBIT' && !isNaN(numAmount) && numAmount > 0) ? numAmount * businessConfig.feePercentage : 0;
 
   // Helper function to log failed transaction
   const logFailedTransaction = async (errorMessage) => {
     try {
       const failedTransactionData = {
         type: type || 'UNKNOWN',
-        amount: numAmount,
-        fee: parseFloat(fee) || 0,
+        amount: !isNaN(numAmount) ? numAmount : 0,
+        fee: !isNaN(fee) ? fee : 0,
         status: 'failed',
         errorMessage: errorMessage
       };
 
       if (type === 'DEBIT') {
         failedTransactionData.senderId = userId;
-        failedTransactionData.description = recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer';
+        failedTransactionData.description = numRecipientId ? `Failed transfer to recipient ID ${numRecipientId}` : 'Failed transfer';
         
-        if (errorMessage !== 'Recipient not found' && recipientId) {
-          failedTransactionData.recipientId = recipientId;
+        // Only set recipientId if it's valid and error is not about recipient not found
+        if (errorMessage !== 'Recipient not found' && numRecipientId && !isNaN(numRecipientId)) {
+          failedTransactionData.recipientId = numRecipientId;
         }
       } else if (type === 'CREDIT') {
         failedTransactionData.recipientId = userId;
@@ -135,11 +137,11 @@ async function createTransaction(req, res, next) {
 
       console.log('Logging failed transaction:', failedTransactionData);
       
-      await prisma.transaction.create({
+      const savedTransaction = await prisma.transaction.create({
         data: failedTransactionData
       });
       
-      console.log('Failed transaction logged successfully');
+      console.log('Failed transaction logged successfully with ID:', savedTransaction.id);
     } catch (createError) {
       console.error('Failed to log failed transaction:', createError);
       console.error('Error details:', createError.message, createError.stack);
@@ -153,12 +155,12 @@ async function createTransaction(req, res, next) {
       return res.status(400).json({ error: 'Invalid transaction type. Must be CREDIT or DEBIT' });
     }
 
-    if (!validateAmount(amount)) {
+    if (!amount || !validateAmount(amount)) {
       await logFailedTransaction('Invalid amount. Must be a positive number');
       return res.status(400).json({ error: 'Invalid amount. Must be a positive number' });
     }
 
-    if (numAmount <= 0) {
+    if (isNaN(numAmount) || numAmount <= 0) {
       await logFailedTransaction('Amount must be greater than 0');
       return res.status(400).json({ error: 'Amount must be greater than 0' });
     }
@@ -180,7 +182,12 @@ async function createTransaction(req, res, next) {
       return res.status(400).json({ error: 'Recipient is required for debit transactions' });
     }
 
-    if (type === 'DEBIT' && recipientId === userId) {
+    if (type === 'DEBIT' && (isNaN(numRecipientId) || numRecipientId <= 0)) {
+      await logFailedTransaction('Invalid recipient ID');
+      return res.status(400).json({ error: 'Invalid recipient ID' });
+    }
+
+    if (type === 'DEBIT' && numRecipientId === userId) {
       await logFailedTransaction('Cannot transfer to yourself');
       return res.status(400).json({ error: 'Cannot transfer to yourself' });
     }
@@ -191,7 +198,7 @@ async function createTransaction(req, res, next) {
       const result = await prisma.$transaction(async (tx) => {
         if (type === 'DEBIT') {
           const recipient = await tx.user.findFirst({
-            where: { id: recipientId, deletedAt: null }
+            where: { id: numRecipientId, deletedAt: null }
           });
 
           if (!recipient) {
@@ -212,7 +219,7 @@ async function createTransaction(req, res, next) {
           });
 
           await tx.user.update({
-            where: { id: recipientId },
+            where: { id: numRecipientId },
             data: { balance: { increment: numAmount } }
           });
 
@@ -223,7 +230,7 @@ async function createTransaction(req, res, next) {
               fee,
               status: 'completed',
               senderId: userId,
-              recipientId,
+              recipientId: numRecipientId,
               description: `Transfer to ${recipient.name}`
             }
           });
