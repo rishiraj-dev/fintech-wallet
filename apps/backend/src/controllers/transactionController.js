@@ -7,17 +7,22 @@ async function getTransactions(req, res, next) {
     const { limit = 10, offset = 0, type } = req.query;
     const userId = req.user.id;
 
-    // filter conditions
-    const where = {
-      OR: [
-        { senderId: userId },
-        { recipientId: userId }
-      ],
+    // Build filter conditions based on type from user's perspective
+    let where = {
       deletedAt: null
     };
 
     if (type && ['CREDIT', 'DEBIT'].includes(type)) {
-      where.type = type;
+      if (type === 'DEBIT') {
+        where.senderId = userId;
+      } else if (type === 'CREDIT') {
+        where.recipientId = userId;
+      }
+    } else {
+      where.OR = [
+        { senderId: userId },
+        { recipientId: userId }
+      ];
     }
 
     //  transactions with pagination
