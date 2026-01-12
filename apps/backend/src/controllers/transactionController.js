@@ -14,14 +14,11 @@ async function getTransactions(req, res, next) {
 
     if (type && ['CREDIT', 'DEBIT'].includes(type)) {
       if (type === 'DEBIT') {
-        // User is the sender (money going out)
         where.senderId = userId;
       } else if (type === 'CREDIT') {
-        // User is the recipient (money coming in)
         where.recipientId = userId;
       }
     } else {
-      // No filter - show all transactions where user is sender OR recipient
       where.OR = [
         { senderId: userId },
         { recipientId: userId }
