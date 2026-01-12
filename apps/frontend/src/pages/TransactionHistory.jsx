@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Filter } from 'lucide-react';
+import { ArrowLeft, Filter, ChevronDown, X } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
@@ -19,6 +19,7 @@ const TransactionHistory = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [pagination, setPagination] = useState({
     total: 0,
     limit: 20,
@@ -153,11 +154,15 @@ const TransactionHistory = () => {
     setPagination(prev => ({ ...prev, offset: 0, page: 1 }));
   };
 
-  const clearDateFilters = () => {
+  const clearFilters = () => {
+    setFilter('all');
+    setStatusFilter('all');
     setStartDate('');
     setEndDate('');
     setPagination(prev => ({ ...prev, offset: 0, page: 1 }));
   };
+
+  const hasActiveFilters = filter !== 'all' || statusFilter !== 'all' || startDate || endDate;
 
   const loadMore = () => {
     setPagination(prev => ({
@@ -188,124 +193,137 @@ const TransactionHistory = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        <Card className="p-4">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Filter size={18} className="text-gray-400 shrink-0" />
-              
-              <button
-                onClick={() => handleFilterChange('all')}
-                className={`
-                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                  ${filter === 'all' 
-                    ? 'bg-[#C5FF55] text-gray-900 shadow-md scale-105' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }
-                `}
-              >
-                All
-              </button>
-              
-              <button
-                onClick={() => handleFilterChange('CREDIT')}
-                className={`
-                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                  ${filter === 'CREDIT' 
-                    ? 'bg-green-500 text-white shadow-md scale-105' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }
-                `}
-              >
-                Credit
-              </button>
-              
-              <button
-                onClick={() => handleFilterChange('DEBIT')}
-                className={`
-                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                  ${filter === 'DEBIT' 
-                    ? 'bg-red-500 text-white shadow-md scale-105' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }
-                `}
-              >
-                Debit
-              </button>
-            </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <Filter size={18} className="text-gray-600 dark:text-gray-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</span>
+            {hasActiveFilters && (
+              <span className="w-2 h-2 bg-[#C5FF55] rounded-full"></span>
+            )}
+            <ChevronDown size={16} className={`text-gray-400 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm"
+            >
+              <X size={14} />
+              Clear All
+            </button>
+          )}
+        </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => handleStatusFilterChange('all')}
-                className={`
-                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                  ${statusFilter === 'all' 
-                    ? 'bg-[#C5FF55] text-gray-900 shadow-md scale-105' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }
-                `}
-              >
-                All Status
-              </button>
-              
-              <button
-                onClick={() => handleStatusFilterChange('completed')}
-                className={`
-                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                  ${statusFilter === 'completed' 
-                    ? 'bg-green-500 text-white shadow-md scale-105' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }
-                `}
-              >
-                Success
-              </button>
-              
-              <button
-                onClick={() => handleStatusFilterChange('failed')}
-                className={`
-                  px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200
-                  ${statusFilter === 'failed' 
-                    ? 'bg-red-500 text-white shadow-md scale-105' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }
-                `}
-              >
-                Failed
-              </button>
-            </div>
+        {showFilters && (
+          <Card className="p-4">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Type
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => handleFilterChange('all')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      filter === 'all'
+                        ? 'bg-[#C5FF55] text-gray-900'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => handleFilterChange('CREDIT')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      filter === 'CREDIT'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Credit
+                  </button>
+                  <button
+                    onClick={() => handleFilterChange('DEBIT')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      filter === 'DEBIT'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Debit
+                  </button>
+                </div>
+              </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  handleDateChange();
-                }}
-                className="px-4 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#C5FF55] focus:border-transparent"
-                placeholder="Start date"
-              />
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  handleDateChange();
-                }}
-                className="px-4 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#C5FF55] focus:border-transparent"
-                placeholder="End date"
-              />
-              {(startDate || endDate) && (
-                <button
-                  onClick={clearDateFilters}
-                  className="px-4 py-2 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                >
-                  Clear Dates
-                </button>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Status
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    onClick={() => handleStatusFilterChange('all')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      statusFilter === 'all'
+                        ? 'bg-[#C5FF55] text-gray-900'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => handleStatusFilterChange('completed')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      statusFilter === 'completed'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Success
+                  </button>
+                  <button
+                    onClick={() => handleStatusFilterChange('failed')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      statusFilter === 'failed'
+                        ? 'bg-red-500 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    Failed
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Date Range
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      handleDateChange();
+                    }}
+                    className="px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#C5FF55] focus:border-transparent"
+                  />
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      handleDateChange();
+                    }}
+                    className="px-3 py-2 rounded-lg text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[#C5FF55] focus:border-transparent"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
 
         <Card className="p-6">
           {loading && pagination.offset === 0 ? (
