@@ -4,10 +4,9 @@ const { validateAmount } = require('../middlewares/sanitization');
 
 async function getTransactions(req, res, next) {
   try {
-    const { limit = 10, offset = 0, type } = req.query;
+    const { limit = 10, offset = 0, type, status, startDate, endDate } = req.query;
     const userId = req.user.id;
 
-    // Build filter conditions based on type from user's perspective
     let where = {
       deletedAt: null
     };
@@ -23,6 +22,22 @@ async function getTransactions(req, res, next) {
         { senderId: userId },
         { recipientId: userId }
       ];
+    }
+
+    if (status && ['completed', 'pending', 'failed'].includes(status)) {
+      where.status = status;
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt.gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
     }
 
     //  transactions with pagination
