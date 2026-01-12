@@ -222,18 +222,22 @@ async function createTransaction(req, res, next) {
       }
 
       if (type === 'DEBIT') {
-        await prisma.transaction.create({
-          data: {
-            type: 'DEBIT',
-            amount,
-            fee,
-            status: 'failed',
-            senderId: userId,
-            recipientId: recipientId || null,
-            description: recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer',
-            errorMessage: errorMessage
-          }
-        });
+        try {
+          await prisma.transaction.create({
+            data: {
+              type: 'DEBIT',
+              amount,
+              fee,
+              status: 'failed',
+              senderId: userId,
+              recipientId: recipientId || null,
+              description: recipientId ? `Failed transfer to recipient ID ${recipientId}` : 'Failed transfer',
+              errorMessage: errorMessage
+            }
+          });
+        } catch (createError) {
+          console.error('Failed to log failed transaction:', createError);
+        }
       }
 
       return res.status(statusCode).json({ error: errorMessage });
